@@ -1,5 +1,5 @@
 {
-    "name": "koehlersimon/slug",
+    "name": "wdb/slug",
     "description": "Helps you managing the URL slugs of your TYPO3 site",
     "type": "typo3-cms-extension",
     "version": "1.0.12",
@@ -9,7 +9,15 @@
     "authors": [
         {
             "name": "Simon Köhler",
-            "email": "info@simon-koehler.com"
+            "homepage": "https://simon-koehler.com"
+            "email": "info@simon-koehler.com",
+            "role": "Developer"
+        },
+        {
+            "name": "David Bruchmann",
+            "homepage": "https://barlians.com",
+            "email": "david.bruchmann@gmail.com",
+            "role": "Developer"
         }
     ],
     "autoload": {
