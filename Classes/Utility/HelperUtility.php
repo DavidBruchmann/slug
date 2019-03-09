@@ -89,7 +89,9 @@ class HelperUtility {
             ->execute();
         $output = array();
         while ($row = $statement->fetch()) {
-            array_push($output, $row);
+            # array_push($output, $row);
+            $isoCode = $this->getIsoCodeByLanguageUid($row['sys_language_uid']);
+            $output[$isoCode] = $row;
         }
         return $output;
     }

@@ -179,7 +179,7 @@ jQuery(document).ready(function(){
                 uid: uid
             },
             success: function(response) {
-                $('.tree-result').html(response);
+                $('.tree-result').html('<!-- AJAX-Response start -->' + response  + '<!-- AJAX-Response end -->');
                 $('button.savePageSlug').on({click: function(){
                     uid = $(this).data('uid');
                     slugInputField = $('.slug-input.page-'+uid);

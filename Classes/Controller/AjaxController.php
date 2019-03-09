@@ -1,5 +1,9 @@
 <?php
+
+declare(strict_types=1);
+
 namespace GOCHILLA\Slug\Controller;
+
 use GOCHILLA\Slug\Utility\HelperUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\DataHandling\SlugHelper;
@@ -158,38 +162,117 @@ class AjaxController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController 
     /**
      * function loadTreeItemSlugs
      *
+     * @param \Psr\Http\Message\ServerRequestInterface $request
+     * @param \Psr\Http\Message\ResponseInterface $response
+     * @param string $mode ['HTML' | 'TEMPLATE' | 'JSON' ]
+     *               $mode = 'HTML' is deprecated to remove HTML from this class
+     *
      * @return void
      */
-    public function loadTreeItemSlugs(\Psr\Http\Message\ServerRequestInterface $request, \Psr\Http\Message\ResponseInterface $response)
+    public function loadTreeItemSlugs(\Psr\Http\Message\ServerRequestInterface $request, \Psr\Http\Message\ResponseInterface $response, $mode = 'HTML')
     {
         $queryParams = $request->getQueryParams();
         $this->helper = GeneralUtility::makeInstance(HelperUtility::class);
         $translations = $this->helper->getPageTranslationsByUid($queryParams['uid']);
         $root = BackendUtility::getRecord('pages',$queryParams['uid']);
+        $parentPage = BackendUtility::getRecord('pages',$root['pid']);
         $languages = $this->helper->getLanguages();
-        $html .= '<div class="well">';
-        $html .= '<h2>'.$root['title'].' <small>'.$root['seo_title'].'</small></h2>';
-        $html .= '<div class="input-group">'
-                . '<span class="input-group-addon"><i class="fa fa-globe"></i></span>'
-                . '<input type="text" data-uid="'.$root['uid'].'" value="'.$root['slug'].'" class="form-control slug-input page-'.$root['uid'].'">'
-                . '<span class="input-group-btn"><button data-uid="'.$root['uid'].'" id="savePageSlug-'.$root['uid'].'" class="btn btn-default savePageSlug" title="Save slug"><i class="fa fa-save"></i></button></span>'
-                . '</div>';
-        foreach ($translations as $page) {
-            foreach ($languages as $value) {
-                if($value['uid'] === $page['sys_language_uid']){
-                    $icon = $value['language_isocode'];
-                }
-            }
-            $html .= '<h3>'.$page['title'].' <small>'.$page['seo_title'].'</small></h3>';
+        
+        if ($mode == 'HTML') {
+            $html .= '<!-- Main Language start -->';
+            $html .= '<div class="well">';
+            $html .= '<h2>'.$root['title'].' <small>'.$root['seo_title'].'</small></h2>';
             $html .= '<div class="input-group">'
-                . '<span class="input-group-addon">'.$icon.'</span>'
-                . '<input type="text" data-uid="'.$page['uid'].'" value="'.$page['slug'].'" class="form-control slug-input page-'.$page['uid'].'">'
-                . '<span class="input-group-btn"><button data-uid="'.$page['uid'].'" id="savePageSlug-'.$page['uid'].'" class="btn btn-default savePageSlug" title="Save slug"><i class="fa fa-save"></i></button></span>'
-                . '</div>';
+                    . '<span class="input-group-addon"><i class="fa fa-globe"></i></span>'
+                    . '<input type="text" data-uid="'.$root['uid'].'" value="'.$root['slug'].'" class="form-control slug-input page-'.$root['uid'].'">'
+                    . '<span class="input-group-btn"><button data-uid="'.$root['uid'].'" id="savePageSlug-'.$root['uid'].'" class="btn btn-default savePageSlug" title="Save slug"><i class="fa fa-save"></i></button></span>'
+                    . '</div>';
+            $rootline = [];
+            $html .=  '<div class="info-toggle"><span style="border:1px solid #888;">+</span> Details</div><div class="info">';
+            $rootline[] = $this->getPageInfoHtml($root, $headline = 'This page');
+            if($parentPage) {
+                while ($parentPage['uid']){
+                    $rootline[] = $this->getPageInfoHtml($parentPage);
+                    $parentPage = BackendUtility::getRecord('pages',$parentPage['pid']);
+                }
+                $html .=  '<h3>Rootline</h3>' . implode('<hr>',$rootline);
+            }
+            $html .=  '</div>';
+            $html .= '<!-- Main Language end -->';
+
+            if (is_array($translations) && count($translations)) {
+                $html .= '<!-- TRANSLATIONS start -->';
+                $counts = [];
+                foreach ($translations as $isoLanguageCode => $page) {
+                    $counts[] = $isoLanguageCode;
+                    $parentPage = $this->helper->getPageTranslationsByUid($page['pid'])[$isoLanguageCode];
+                    $html .= '<!-- TRANSLATION '.$isoLanguageCode.' - ' . $page['sys_language_uid'] . ' start -->';
+                    foreach ($languages as $value) {
+                        if($value['uid'] === $page['sys_language_uid']){
+                            $icon = $value['language_isocode'];
+                        }
+                    }
+                    $html .= '<h3>'.$page['title'].' <small>'.$page['seo_title'].'</small></h3>';
+                    $html .= '<div class="input-group">'
+                        . '<span class="input-group-addon">'.$icon.'</span>'
+                        . '<input type="text" data-uid="'.$page['uid'].'" value="'.$page['slug'].'" class="form-control slug-input page-'.$page['uid'].'">'
+                        . '<span class="input-group-btn"><button data-uid="'.$page['uid'].'" id="savePageSlug-'.$page['uid'].'" class="btn btn-default savePageSlug" title="Save slug"><i class="fa fa-save"></i></button></span>'
+                        . '</div>';
+                    $html .=  '<div class="info-toggle"><span style="border:1px solid #888;">+</span> Details</div><div class="info">';
+                    $rootline = [];
+                    if ($page['sys_language_uid'] !== '0' && $isoLanguageCode === $this->helper->getIsoCodeByLanguageUid($page['sys_language_uid'])) {
+                        $rootline[] = $this->getPageInfoHtml($page, $headline = 'This page');
+                        if($parentPage) {
+                            $n=0;
+                            while ($parentPage['uid']){
+                                # if ($parentPage['sys_language_uid'] == ) {
+                                $rootline[] = $this->getPageInfoHtml($parentPage);
+                                $parentPage = $this->helper->getPageTranslationsByUid($parentPage['pid'])[$isoLanguageCode];
+                                $n++;
+                            }
+                     
+                            $html .=  '<h3>Rootline</h3>' . implode('<hr>',$rootline);
+                        }
+                        $html .=  '</div>';
+                        $html .= '<!-- TRANSLATION '.$isoLanguageCode.' end -->';
+                    }
+                }
+                $html .= '<!-- TRANSLATIONS end -->';
+            }
+            $html .= '</div>$counts:'.implode(',',$counts);
+            $response->getBody()->write($html);
+            return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
         }
-        $html .= '</div>';
-        $response->getBody()->write($html);
-        return $response->withHeader('Content-Type', 'text/html; charset=utf-8');      
+        elseif ($mode == "TEMPLATE") {
+            // TODO: 
+            // - load template and assign variables
+            // - parse Template
+            // - return parsed Template
+
+            // return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+        }
+        elseif ($mode == "JSON") {
+            // TODO: 
+            // create JSON-objects and arrays
+            // return JSON
+
+            // return $response->withHeader('Content-Type', 'text/json; charset=utf-8');
+        }
+        
+    }
+    
+    protected function getPageInfoHtml(array $page, $headline = 'Next page up')
+    {
+        $html = '<h4>' . $headline . '</h4>'
+            . '<table>'
+            . '<tr><th>sys_language_uid</th><td>'.$page['sys_language_uid'].'</td></tr>'
+            . '<tr><th>title</th><td>'.$page['title'].'</td></tr>'
+            . '<tr><th>subtitle</th><td>'.$page['subtitle'].'</td></tr>'
+            . '<tr><th>nav_title</th><td>'.$page['nav_title'].'</td></tr>'
+            . '<tr><th>slug (currently)</th><td>'.$page['slug'].'</td></tr>'
+            . '<tr><th>seo_title</th><td>'.$page['seo_title'].'</td></tr>'
+            . '</table>';
+        return $html;
     }
     
 }
