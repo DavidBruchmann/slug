@@ -166,17 +166,20 @@ class AjaxController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController 
      * @param \Psr\Http\Message\ResponseInterface $response
      * @param string $mode ['HTML' | 'TEMPLATE' | 'JSON' ]
      *               $mode = 'HTML' is deprecated to remove HTML from this class
+     * IMPORTANT: currently only $mode = 'HTML' is working
+     * @TODO: add code for modes 'TEMPLATE' and 'JSON'
      *
      * @return void
      */
     public function loadTreeItemSlugs(\Psr\Http\Message\ServerRequestInterface $request, \Psr\Http\Message\ResponseInterface $response, $mode = 'HTML')
     {
-        $queryParams = $request->getQueryParams();
-        $this->helper = GeneralUtility::makeInstance(HelperUtility::class);
-        $translations = $this->helper->getPageTranslationsByUid($queryParams['uid']);
-        $root = BackendUtility::getRecord('pages',$queryParams['uid']);
-        $parentPage = BackendUtility::getRecord('pages',$root['pid']);
-        $languages = $this->helper->getLanguages();
+        $queryParams   = $request->getQueryParams();
+        $this->helper  = GeneralUtility::makeInstance(HelperUtility::class);
+        $translations  = $this->helper->getPageTranslationsByUid($queryParams['uid']);
+        $root          = BackendUtility::getRecord('pages',$queryParams['uid']);
+        $parentPage    = BackendUtility::getRecord('pages',$root['pid']);
+        $languages     = $this->helper->getLanguages();
+        $siteLanguages = [];  // @see https://docs.typo3.org/typo3cms/CoreApiReference/latest/ApiOverview/SiteHandling/AccessingSiteConfiguration.html
         
         if ($mode == 'HTML') {
             $html .= '<!-- Main Language start -->';
@@ -202,17 +205,15 @@ class AjaxController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController 
 
             if (is_array($translations) && count($translations)) {
                 $html .= '<!-- TRANSLATIONS start -->';
-                $counts = [];
                 foreach ($translations as $isoLanguageCode => $page) {
-                    $counts[] = $isoLanguageCode;
                     $parentPage = $this->helper->getPageTranslationsByUid($page['pid'])[$isoLanguageCode];
-                    $html .= '<!-- TRANSLATION '.$isoLanguageCode.' - ' . $page['sys_language_uid'] . ' start -->';
+                    $html .= '<!-- TRANSLATION '.$isoLanguageCode.' [' . $page['sys_language_uid'] . '] start -->';
                     foreach ($languages as $value) {
                         if($value['uid'] === $page['sys_language_uid']){
                             $icon = $value['language_isocode'];
                         }
                     }
-                    $html .= '<h3>'.$page['title'].' <small>'.$page['seo_title'].'</small></h3>';
+                    $html .= '<h3 title="title">'.$page['title'].' <small title="seo_title">'.$page['seo_title'].'</small></h3>';
                     $html .= '<div class="input-group">'
                         . '<span class="input-group-addon">'.$icon.'</span>'
                         . '<input type="text" data-uid="'.$page['uid'].'" value="'.$page['slug'].'" class="form-control slug-input page-'.$page['uid'].'">'
@@ -223,23 +224,20 @@ class AjaxController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController 
                     if ($page['sys_language_uid'] !== '0' && $isoLanguageCode === $this->helper->getIsoCodeByLanguageUid($page['sys_language_uid'])) {
                         $rootline[] = $this->getPageInfoHtml($page, $headline = 'This page');
                         if($parentPage) {
-                            $n=0;
                             while ($parentPage['uid']){
-                                # if ($parentPage['sys_language_uid'] == ) {
                                 $rootline[] = $this->getPageInfoHtml($parentPage);
                                 $parentPage = $this->helper->getPageTranslationsByUid($parentPage['pid'])[$isoLanguageCode];
-                                $n++;
                             }
-                     
-                            $html .=  '<h3>Rootline</h3>' . implode('<hr>',$rootline);
+                            $html .=  '<h3>Rootline</h3>';
+                            $html .=  implode('<hr>', $rootline);
                         }
                         $html .=  '</div>';
-                        $html .= '<!-- TRANSLATION '.$isoLanguageCode.' end -->';
+                        $html .= '<!-- TRANSLATION '.$isoLanguageCode.' [' . $page['sys_language_uid'] . '] end -->';
                     }
                 }
                 $html .= '<!-- TRANSLATIONS end -->';
             }
-            $html .= '</div>$counts:'.implode(',',$counts);
+            $html .= '</div>';
             $response->getBody()->write($html);
             return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
         }
